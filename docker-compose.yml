@@ -1,0 +1,74 @@
+version: '3'
+services:
+  hassio:
+    container_name: hassio
+    image: homeassistant/home-assistant:latest
+    volumes:
+      - ./hassio:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - 8123:8123
+
+  # VSCode
+  vscode:
+    container_name: vscode
+    image: codercom/code-server
+    volumes:
+      # Set <project dir> to the directory you want to open in VS Code.
+      - ./:/config
+      # <vs code config> should point to a local dir where vs code stores its data.
+      - ./vscode:/home/coder/.local/share/code-server
+    ports:
+      - 8443:8080
+    command: code-server --auth none --disable-telemetry /config
+    restart: unless-stopped
+  
+  # Mosquitto
+  mqtt:
+    container_name: mqtt
+    image: eclipse-mosquitto
+    ports:
+      - 1883:1883
+      # This port is for Webhooks
+      - 9001:9001
+    volumes:
+      - ./mqtt/config:/mosquitto/config
+      - ./mqtt/data:/mosquitto/data
+      - ./mqtt/log:/mosquitto/log
+      
+  # ESPHome 
+  esphome:
+    container_name: esphome
+    image: esphome/esphome
+    ports:
+      - 6052:6052
+    volumes:
+      # Update PATH_TO_YOUR_CONFIG, the :rw gives the container Read/Write access
+      - ./esphome:/config:rw
+      # Use local time for logging timestamps
+      - /etc/localtime:/etc/localtime:ro
+    # You do have to map a serial port here. Determine your port and uncomment.
+    # devices:
+    #  - /dev/ttyAMC0:/dev/ttyAMC0
+    restart: always
+    
+  # Zigbee2MQTT
+  zigbee2mqtt:
+    container_name: zigbee2mqtt
+    depends_on:
+      - mqtt
+    image: koenkk/zigbee2mqtt
+    volumes:
+      - ./zigbee2mqtt:/app/data
+      # - /run/udev:/run/udev:ro
+    ports:
+      # Frontend port
+      - 8080:8080
+    deploy:
+      resources:
+        limits:
+          memory: 100M
+    restart: always
+    privileged: true
